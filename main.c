@@ -15,7 +15,13 @@ typedef struct {
   float right;
 } Frame;
 
-float complex out[64];
+#define ARRAY_LEN(xs) sizeof(xs) / sizeof(xs[0])
+#define CAPACITY 512
+float MAX_SAMPLE=0;
+float complex left_global_samples[CAPACITY] = {};
+float complex right_global_samples[CAPACITY] = {};
+static unsigned int global_channels = 0;
+
 void fft(float in[], size_t stride, float complex out[], size_t n) {
   assert(n > 0);
   if (n == 1) {
@@ -33,28 +39,9 @@ void fft(float in[], size_t stride, float complex out[], size_t n) {
     out[k + n / 2] = e - v;
   }
 }
-#define ARRAY_LEN(xs) sizeof(xs) / sizeof(xs[0])
-#define CAPACITY 512
-float MAX_SAMPLE=0;
-float complex left_global_samples[CAPACITY] = {};
-float complex right_global_samples[CAPACITY] = {};
-size_t global_samples_count = 0;
-Frame global_frames[CAPACITY] = {0};
-size_t global_frames_count = 0;
-static unsigned int global_channels = 0;
 
 void callback(void *bufferData, unsigned int frames) {
-  /* if (CAPACITY - global_frames_count >= frames) { */
-  /*   memcpy(global_frames + global_frames_count, bufferData, frames * sizeof(Frame)); */
-  /*   global_frames_count += frames; */
-  /* } else if (frames <= CAPACITY) { */
-  /*   memmove(global_frames, global_frames + frames, sizeof(Frame) * (CAPACITY - frames)); */
-  /*   memcpy(global_frames + (CAPACITY - frames), bufferData, sizeof(Frame) * frames); */
-  /* } else { */
-  /*   memcpy(global_frames, bufferData, sizeof(Frame) * CAPACITY); */
-  /*   global_frames_count = CAPACITY; */
-  /* } */
-
+    
   float *float_data = (float *)bufferData;
   float left_channel[frames] = {};
   float right_channel[frames] = {};
@@ -67,10 +54,10 @@ void callback(void *bufferData, unsigned int frames) {
 
   MAX_SAMPLE=0;
   for (size_t i = 0; i <frames ; i++) {
-        float t =cabs(left_global_samples[i]);
+        float t =cabsf(left_global_samples[i]);
         if (t>MAX_SAMPLE) MAX_SAMPLE=t;
         left_global_samples[i]=t;
-        t =cabs(right_global_samples[i]);
+        t =cabsf(right_global_samples[i]);
         if (t>MAX_SAMPLE) MAX_SAMPLE=t;
         right_global_samples[i]=t;
   }
@@ -78,10 +65,10 @@ void callback(void *bufferData, unsigned int frames) {
 
 int main() {
   pi = atan2f(1, 1) * 4;
-  InitWindow(2000, 600, "Albatross");
+  InitWindow(800, 600, "Albatross");
   SetTargetFPS(60);
   InitAudioDevice();
-  Music music = LoadMusicStream("test.mp3");
+  Music music = LoadMusicStream("tower_of_dreams.mp3");
   PlayMusicStream(music);
   printf("music.frameCount=%d\n", music.frameCount);
   printf("music.stream.sampleRate=%u\n", music.stream.sampleRate);
@@ -106,11 +93,15 @@ int main() {
     int width = (int)cell_width;
     if (width < 1)
       width = 1;
-    printf("MAX SAMPLE for this batch is %4.4f\n",MAX_SAMPLE);
+    //printf("MAX SAMPLE for this batch is %4.4f\n",MAX_SAMPLE);
     for (size_t i = 0; i < CAPACITY/2; ++i) {
       int y = h / 2;
-      float complex left_sample = left_global_samples[i];
-      float complex right_sample=right_global_samples[i];
+      float left_sample = left_global_samples[i];
+      float right_sample=right_global_samples[i];
+      if (left_sample>MAX_SAMPLE){
+
+          printf("left_sample is %f while max_sample is",left_sample,MAX_SAMPLE);
+      }
       float t=left_sample/MAX_SAMPLE;
       float barH = t* h / 2;
 
@@ -121,6 +112,11 @@ int main() {
         barH=h/2;
        }
       DrawRectangle((int)(i * cell_width), h-(int)barH, width, barH, RED);
+
+      if (right_sample>MAX_SAMPLE){
+
+          printf("left_sample is %f while max_sample is",right_sample,MAX_SAMPLE);
+      }
       t=right_sample/MAX_SAMPLE;  
       barH = t * h / 2;
 

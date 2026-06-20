@@ -1,7 +1,12 @@
-execute:
-	clear && clang -Wall -Wextra -o build/albatross source/main.c -lraylib -lm -lpthread -ldl && ./build/albatross
-build:
-	clear && clang -Wall -Wextra -o build/albatross source/main.c -lraylib -lm -lpthread -ldl
+
+CFLAGS=-Wall -Wextra -ggdb
+LIBS=-L./build/ -lraylib -lm -lpthread -ldl 
+TARGET = build/albatross
+
+execute: build_shared build run
+
+$(TARGET):source/main.c
+	clear && clang $(CFLAGS) -o build/albatross source/main.c  $(LIBS)
 run:
 	./build/albatross
 clear:
@@ -9,3 +14,7 @@ clear:
 
 clear_all:
 	rm ./build/*
+build_shared:
+	clang $(CFLAGS) -fPIC -shared  -o build/libplug.so  source/plug.c $(LIBS)
+.PHONY: build
+build : $(TARGET) build_shared

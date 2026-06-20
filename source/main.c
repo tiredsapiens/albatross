@@ -68,7 +68,7 @@ int main() {
   InitWindow(800, 600, "Albatross");
   SetTargetFPS(60);
   InitAudioDevice();
-  Music music = LoadMusicStream("tower_of_dreams.mp3");
+  Music music = LoadMusicStream("audio/tower_of_dreams.mp3");
   PlayMusicStream(music);
   printf("music.frameCount=%d\n", music.frameCount);
   printf("music.stream.sampleRate=%u\n", music.stream.sampleRate);

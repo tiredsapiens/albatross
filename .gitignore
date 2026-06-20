@@ -3,4 +3,4 @@ albatross
 celestial_symphony.*
 .main.c.swp
 .gitignore.swp
-
+build/*

@@ -1,9 +1,11 @@
 execute:
-	clear && clang -Wall -Wextra -o albatross main.c -lraylib -lm -lpthread -ldl && ./albatross
+	clear && clang -Wall -Wextra -o build/albatross source/main.c -lraylib -lm -lpthread -ldl && ./build/albatross
 build:
-	clear && clang -Wall -Wextra -o albatross main.c -lraylib -lm -lpthread -ldl 
+	clear && clang -Wall -Wextra -o build/albatross source/main.c -lraylib -lm -lpthread -ldl
 run:
-	./albatross
+	./build/albatross
 clear:
-	rm ./albatross
+	rm ./build/albatross
 
+clear_all:
+	rm ./build/*

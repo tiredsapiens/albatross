@@ -5,7 +5,7 @@ TARGET = build/albatross
 
 execute: build_shared build run
 
-$(TARGET):source/main.c
+$(TARGET):source/main.c source/plug.h source/plug.c
 	clear && clang $(CFLAGS) -o build/albatross source/main.c  $(LIBS)
 run:
 	./build/albatross

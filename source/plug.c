@@ -4,6 +4,7 @@
 #include <complex.h>
 #include <raylib.h>
 #include <assert.h>
+#include <string.h>
 
 
 void fft(float in[], size_t stride, float complex out[], size_t n) {
@@ -25,24 +26,31 @@ void fft(float in[], size_t stride, float complex out[], size_t n) {
 }
 
 void callback(void *bufferData, unsigned int frames) {
-    if (frames<CAPACITY){
-        fprintf(stderr,"Received too small of a frame %d , skipping ...",frames);
-        return;
-    }
     float *float_data = (float *)bufferData;
-    for (size_t i = 0; i < CAPACITY; i++) {
-	left_global_samples[i] = float_data[2 * i];
-	right_global_samples[i] = float_data[2 * i + 1];
+    size_t n = frames < CAPACITY ? frames : CAPACITY;
+    for (size_t i = 0; i < n; i++) {
+        left_global_samples[i] = float_data[2 * i];
+        right_global_samples[i] = float_data[2 * i + 1];
     }
+}
+void plug_pre_reload(Plug* plug){
+    DetachAudioStreamProcessor(plug->music.stream,callback);
+}
+
+void plug_post_reload(Plug* plug){
+
+    AttachAudioStreamProcessor(plug->music.stream, callback);
 }
 
 void plug_init(Plug *plug,const char* filepath){
     plug->music = LoadMusicStream(filepath);
-    PlayMusicStream(plug->music);
     printf("music.frameCount=%d\n", plug->music.frameCount);
     printf("music.stream.sampleRate=%u\n", plug->music.stream.sampleRate);
     printf("music.stream.sampleSize=%u\n", plug->music.stream.sampleSize);
     printf("music.stream.channels= %u \n", plug->music.stream.channels);
+    PlayMusicStream(plug->music);
+    memset(plug->fft_left_global_samples, 0, sizeof(plug->fft_left_global_samples));
+    memset(plug->fft_right_global_samples, 0, sizeof(plug->fft_right_global_samples));
     plug->global_channels = plug->music.stream.channels;
     AttachAudioStreamProcessor(plug->music.stream, callback);
 }
@@ -56,42 +64,62 @@ void plug_update(Plug* plug){
 		ResumeMusicStream(plug->music);
 	    }
 	}
-        fft(left_global_samples, 1, plug-> fft_left_global_samples,  CAPACITY);
+        fft(left_global_samples, 1, plug->fft_left_global_samples,  CAPACITY);
         fft(right_global_samples, 1, plug->fft_right_global_samples, CAPACITY);
-        MAX_SAMPLE = 0;
+        MAX_SAMPLE = 0.0f;
         for (size_t i = 0; i < CAPACITY; i++) {
-	float t = cabsf(plug->fft_left_global_samples[i]);
-	if (t > MAX_SAMPLE)
-	    MAX_SAMPLE = t;
-	left_global_samples[i] = t;
-	t = cabsf(plug->fft_right_global_samples[i]);
-	if (t > MAX_SAMPLE)
-	    MAX_SAMPLE = t;
-	right_global_samples[i] = t;
-    }
+            float t = cabsf(plug->fft_left_global_samples[i]);
+            if (t > MAX_SAMPLE) MAX_SAMPLE = t;
+            t = cabsf(plug->fft_right_global_samples[i]);
+            if (t > MAX_SAMPLE) MAX_SAMPLE = t;
+        }
 	BeginDrawing();
 	ClearBackground(CLITERAL(Color){0x18, 0x18, 0x18, 0xFF});
 	int w = GetRenderWidth();
 	int h = GetRenderHeight();
-	float cell_width = (float)w / (CAPACITY / 2);
+        float step=1.09;
+        size_t m=0;
+        for (float f = 20.0f; (size_t)f <CAPACITY/2 ; f*=step) {
+            m+=1;
+        }
+	float cell_width = (float)w / (m);
 	int width = (int)cell_width;
-	if (width < 1)
-	    width = 1;
-	for (size_t i = 0; i < CAPACITY / 2; ++i) {
-	    float left_sample =  left_global_samples[i];
-	    float right_sample = right_global_samples[i];
+        
+        printf("width is %d\n",width);
+	/* if (width < 2) */
+	/*     width = 2; */
+	if (MAX_SAMPLE == 0.0f) {EndDrawing(); return; }
+        m=0;
+        for (float f = 20.0f; (size_t)f <CAPACITY/2 ; f*=step) {
+
+	    float left_sample =  cabs(plug-> fft_left_global_samples[(size_t)f]);
+	    float right_sample = cabs(plug->fft_right_global_samples[(size_t)f]);
 	    float t = left_sample / MAX_SAMPLE;
 	    float barH = t * h / 2;
-	    if (barH > h / 2) {
-		barH = h / 2;
-	    }
-	    DrawRectangle((int)(i * cell_width), h - (int)barH, width, barH, RED);
-	    t = right_sample / MAX_SAMPLE;
+	    /* if (barH > h / 2) { */
+		/* barH = h / 2; */
+	    /* } */
+	    DrawRectangle((int)(m * cell_width), h - (int)barH, width, barH, BLUE);
+	    /* t = right_sample / MAX_SAMPLE; */
+	    /* barH = t * h / 2; */
+	    /* if (barH > h / 2) { */
+		/* barH = h / 2; */
+	    /* } */
+	    /* DrawRectangle((int)(m * cell_width + 1), h / 2 - (int)barH, width, barH, GREEN); */
+            float f1=f*step;
+            float a=0.0f;
+            for (size_t q= (size_t) f; q <(CAPACITY/2) && q<(size_t)f1 ; ++q) {
+                    a+= cabs(plug->fft_left_global_samples[q]);
+            }
+
+            a=a/((size_t)f1 - (size_t)f +1);
+	    t = a / MAX_SAMPLE;
 	    barH = t * h / 2;
 	    if (barH > h / 2) {
 		barH = h / 2;
 	    }
-	    DrawRectangle((int)(i * cell_width + 1), h / 2 - (int)barH, width, barH, BLUE);
+	    DrawRectangle((int)(m * cell_width + 1), h / 2 - (int)barH, width, barH, GREEN);
+            m++;
 	}
 	EndDrawing();
 }

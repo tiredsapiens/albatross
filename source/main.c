@@ -21,8 +21,10 @@ typedef struct {
 plug_hello_t plug_hello=NULL;
 plug_init_t plug_init=NULL;
 plug_update_t plug_update=NULL;
+plug_pre_reload_t plug_pre_reload=NULL;
+plug_post_reload_t plug_post_reload=NULL;
 Plug plug ={0};
-const char * libplug_file_name="libplug.so";
+const char * libplug_file_name="./build/libplug.so";
 void * libplug=NULL;
 
 bool reload_libplug(void){
@@ -43,21 +45,34 @@ bool reload_libplug(void){
         fprintf(stderr,"ERROR: couldnt not load symbol plug_update: %s\n",dlerror());
         return false;
     }
+    plug_pre_reload=dlsym(libplug,"plug_pre_reload");
+    if (plug_update==NULL){
+        fprintf(stderr,"ERROR: couldnt not load symbol plug_pre_reload: %s\n",dlerror());
+        return false;
+    }
+
+    plug_post_reload=dlsym(libplug,"plug_post_reload");
+    if (plug_update==NULL){
+        fprintf(stderr,"ERROR: couldnt not load symbol plug_post_reload: %s\n",dlerror());
+        return false;
+    }
     return true;
 }
 
 
 int main() {
     if (!reload_libplug()) return 1; 
-    InitWindow(2000, 600, "Albatross");
+    InitWindow(800, 600, "Albatross");
     SetTargetFPS(60);
     InitAudioDevice();
     plug_init(&plug,"./audio/celestial_symphony.mp3");
     while (!WindowShouldClose()) {
         if (IsKeyPressed(KEY_R)){
+            plug_pre_reload(&plug);
             if (!reload_libplug()){
                 return 1;
             }
+            plug_post_reload(&plug);
         }
         plug_update(&plug);
     }

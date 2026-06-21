@@ -100,12 +100,12 @@ void plug_update(Plug* plug){
 		/* barH = h / 2; */
 	    /* } */
 	    DrawRectangle((int)(m * cell_width), h - (int)barH, width, barH, BLUE);
-	    /* t = right_sample / MAX_SAMPLE; */
-	    /* barH = t * h / 2; */
-	    /* if (barH > h / 2) { */
-		/* barH = h / 2; */
-	    /* } */
-	    /* DrawRectangle((int)(m * cell_width + 1), h / 2 - (int)barH, width, barH, GREEN); */
+	    t = right_sample / MAX_SAMPLE;
+	    barH = t * h / 2;
+	    if (barH > h / 2) {
+		barH = h / 2;
+	    }
+	    DrawRectangle((int)(m * cell_width + 1), h / 2 - (int)barH, width, barH, GREEN);
             float f1=f*step;
             float a=0.0f;
             for (size_t q= (size_t) f; q <(CAPACITY/2) && q<(size_t)f1 ; ++q) {

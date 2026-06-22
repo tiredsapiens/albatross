@@ -11,6 +11,8 @@ float MAX_SAMPLE=0.0f;
 typedef struct {
     unsigned int global_channels;
     float complex fft_global_samples[CAPACITY];
+    float smoothed[CAPACITY];
+    float snapshot[CAPACITY];
     Music music;
 } Plug;
 

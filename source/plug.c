@@ -10,6 +10,8 @@ typedef struct {
     float left;
     float right;
 }Frame;
+
+float  ALPHA;
 size_t CURRENT_SIZE=0;
 void fft(float in[], size_t stride, float complex out[], size_t n) {
     assert(n > 0);
@@ -61,11 +63,18 @@ void plug_init(Plug *plug,const char* filepath){
     printf("music.stream.channels= %u \n", plug->music.stream.channels);
     PlayMusicStream(plug->music);
     memset(plug->fft_global_samples, 0, sizeof(plug->fft_global_samples));
+    memset(plug->smoothed, 0, sizeof(plug->smoothed));
     plug->global_channels = plug->music.stream.channels;
     AttachAudioStreamProcessor(plug->music.stream, callback);
 }
 
 void plug_update(Plug* plug){
+        ALPHA=0.5f;
+        MAX_SAMPLE = 0.0f;
+	int w = GetRenderWidth();
+	int h = GetRenderHeight();
+        float step=1.09;
+        size_t m=0;
 	UpdateMusicStream(plug->music);
 	if (IsKeyPressed(KEY_SPACE)) {
 	    if (IsMusicStreamPlaying(plug->music)) {
@@ -74,31 +83,29 @@ void plug_update(Plug* plug){
 		ResumeMusicStream(plug->music);
 	    }
 	}
-        fft(global_samples, 1, plug->fft_global_samples,  CAPACITY);
-        MAX_SAMPLE = 0.0f;
+        //this is done so the values of global_samples do not get overwritten by the callback(which runs in a different thread) before the fft is finished
+        memcpy(plug->snapshot, global_samples, sizeof(plug->snapshot));   
+        fft(plug->snapshot, 1, plug->fft_global_samples,  CAPACITY);
         for (size_t i = 0; i < CAPACITY; i++) {
             float t = cabsf(plug->fft_global_samples[i]);
             if (t > MAX_SAMPLE) MAX_SAMPLE = t;
         }
 	BeginDrawing();
 	ClearBackground(CLITERAL(Color){0x18, 0x18, 0x18, 0xFF});
-	int w = GetRenderWidth();
-	int h = GetRenderHeight();
-        float step=1.09;
-        size_t m=0;
         for (float f = 20.0f; (size_t)f <CAPACITY/2 ; f*=step) {
             m+=1;
         }
 	float cell_width = (float)w / (m);
 	int width = (int)cell_width;
         
-	if (MAX_SAMPLE == 0.0f) {EndDrawing(); return; }
+	if (MAX_SAMPLE == 0.0f) {
+            printf("MAX_SAMPLE was %f skipping drawing\n",MAX_SAMPLE);
+            EndDrawing(); 
+            return; 
+        }
         m=0;
         for (float f = 20.0f; (size_t)f <CAPACITY/2 ; f*=step) {
 
-	    float sample =  cabs(plug-> fft_global_samples[(size_t)f]);
-	    float t = sample / MAX_SAMPLE;
-	    float barH = t * h / 2;
             float f1=f*step;
             float a=0.0f;
             for (size_t q= (size_t) f; q <(CAPACITY/2) && q<(size_t)f1 ; ++q) {
@@ -106,12 +113,16 @@ void plug_update(Plug* plug){
             }
 
             a=a/((size_t)f1 - (size_t)f +1);
-	    t = a / MAX_SAMPLE;
-	    barH = t * h / 2;
-	    if (barH > h / 2) {
+	    float t = a / MAX_SAMPLE;
+
+            /* if (t/plug->smoothed[m]>1.6f || t/plug->smoothed[m]<0.4f ) ALPHA=0; */
+            
+            plug->smoothed[m] = plug->smoothed[m] * ALPHA + t* (1-ALPHA); // this is to smooth it out , since fft is being calculated like 60 times a second, the output values go up and down around the center value and visually this renders
+            float barH = plug->smoothed[m] * h / 2;                       // as flickering which is visually unappealing. to go around this we only use 30% of the new value and 70% of the old value, so that the value we visualise is closer to old value.
+	    if (barH > h / 2) {                                           // this is called Exponential Moving Average(EMA)
 		barH = h / 2;
 	    }
-	    DrawRectangle((int)(m * cell_width + 1), h / 2 - (int)barH, width, barH, RED);
+	    DrawRectangle(m * cell_width, h / 2 - (int)barH, width, barH, RED);
             m++;
 	}
 	EndDrawing();

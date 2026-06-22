@@ -3,15 +3,14 @@
 #include <complex.h>
 #include <raylib.h>
 
-#define CAPACITY (1<<13)
+#define CAPACITY (1<<15)
 
-float  left_global_samples[CAPACITY]={};
-float  right_global_samples[CAPACITY]={};
+
+float  global_samples[CAPACITY]={};
 float MAX_SAMPLE=0.0f;
 typedef struct {
     unsigned int global_channels;
-    float complex fft_left_global_samples[CAPACITY];
-    float complex fft_right_global_samples[CAPACITY];
+    float complex fft_global_samples[CAPACITY];
     Music music;
 } Plug;
 

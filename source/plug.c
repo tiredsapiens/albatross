@@ -6,7 +6,11 @@
 #include <assert.h>
 #include <string.h>
 
-
+typedef struct {
+    float left;
+    float right;
+}Frame;
+size_t CURRENT_SIZE=0;
 void fft(float in[], size_t stride, float complex out[], size_t n) {
     assert(n > 0);
     if (n == 1) {
@@ -26,19 +30,26 @@ void fft(float in[], size_t stride, float complex out[], size_t n) {
 }
 
 void callback(void *bufferData, unsigned int frames) {
-    float *float_data = (float *)bufferData;
-    size_t n = frames < CAPACITY ? frames : CAPACITY;
-    for (size_t i = 0; i < n; i++) {
-        left_global_samples[i] = float_data[2 * i];
-        right_global_samples[i] = float_data[2 * i + 1];
+    if (frames>CAPACITY){
+        printf("callback: Received too big of a frame\n");
+        return;
     }
+    Frame *frame_data = bufferData;
+    if (CAPACITY-CURRENT_SIZE<frames){
+        memmove(global_samples,global_samples+frames,sizeof(float)*(CAPACITY-frames));
+        CURRENT_SIZE-=frames;
+    }
+    for (size_t i = 0; i <frames ; i++) {
+        global_samples[CURRENT_SIZE+i]=(frame_data[i].left+frame_data[i].right)/2;
+    }
+    CURRENT_SIZE+=frames;
+
 }
 void plug_pre_reload(Plug* plug){
     DetachAudioStreamProcessor(plug->music.stream,callback);
 }
 
 void plug_post_reload(Plug* plug){
-
     AttachAudioStreamProcessor(plug->music.stream, callback);
 }
 
@@ -49,8 +60,7 @@ void plug_init(Plug *plug,const char* filepath){
     printf("music.stream.sampleSize=%u\n", plug->music.stream.sampleSize);
     printf("music.stream.channels= %u \n", plug->music.stream.channels);
     PlayMusicStream(plug->music);
-    memset(plug->fft_left_global_samples, 0, sizeof(plug->fft_left_global_samples));
-    memset(plug->fft_right_global_samples, 0, sizeof(plug->fft_right_global_samples));
+    memset(plug->fft_global_samples, 0, sizeof(plug->fft_global_samples));
     plug->global_channels = plug->music.stream.channels;
     AttachAudioStreamProcessor(plug->music.stream, callback);
 }
@@ -64,13 +74,10 @@ void plug_update(Plug* plug){
 		ResumeMusicStream(plug->music);
 	    }
 	}
-        fft(left_global_samples, 1, plug->fft_left_global_samples,  CAPACITY);
-        fft(right_global_samples, 1, plug->fft_right_global_samples, CAPACITY);
+        fft(global_samples, 1, plug->fft_global_samples,  CAPACITY);
         MAX_SAMPLE = 0.0f;
         for (size_t i = 0; i < CAPACITY; i++) {
-            float t = cabsf(plug->fft_left_global_samples[i]);
-            if (t > MAX_SAMPLE) MAX_SAMPLE = t;
-            t = cabsf(plug->fft_right_global_samples[i]);
+            float t = cabsf(plug->fft_global_samples[i]);
             if (t > MAX_SAMPLE) MAX_SAMPLE = t;
         }
 	BeginDrawing();
@@ -85,31 +92,17 @@ void plug_update(Plug* plug){
 	float cell_width = (float)w / (m);
 	int width = (int)cell_width;
         
-        printf("width is %d\n",width);
-	/* if (width < 2) */
-	/*     width = 2; */
 	if (MAX_SAMPLE == 0.0f) {EndDrawing(); return; }
         m=0;
         for (float f = 20.0f; (size_t)f <CAPACITY/2 ; f*=step) {
 
-	    float left_sample =  cabs(plug-> fft_left_global_samples[(size_t)f]);
-	    float right_sample = cabs(plug->fft_right_global_samples[(size_t)f]);
-	    float t = left_sample / MAX_SAMPLE;
+	    float sample =  cabs(plug-> fft_global_samples[(size_t)f]);
+	    float t = sample / MAX_SAMPLE;
 	    float barH = t * h / 2;
-	    /* if (barH > h / 2) { */
-		/* barH = h / 2; */
-	    /* } */
-	    DrawRectangle((int)(m * cell_width), h - (int)barH, width, barH, BLUE);
-	    t = right_sample / MAX_SAMPLE;
-	    barH = t * h / 2;
-	    if (barH > h / 2) {
-		barH = h / 2;
-	    }
-	    DrawRectangle((int)(m * cell_width + 1), h / 2 - (int)barH, width, barH, GREEN);
             float f1=f*step;
             float a=0.0f;
             for (size_t q= (size_t) f; q <(CAPACITY/2) && q<(size_t)f1 ; ++q) {
-                    a+= cabs(plug->fft_left_global_samples[q]);
+                    a+= cabs(plug->fft_global_samples[q]);
             }
 
             a=a/((size_t)f1 - (size_t)f +1);
@@ -118,7 +111,7 @@ void plug_update(Plug* plug){
 	    if (barH > h / 2) {
 		barH = h / 2;
 	    }
-	    DrawRectangle((int)(m * cell_width + 1), h / 2 - (int)barH, width, barH, GREEN);
+	    DrawRectangle((int)(m * cell_width + 1), h / 2 - (int)barH, width, barH, RED);
             m++;
 	}
 	EndDrawing();

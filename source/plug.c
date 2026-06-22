@@ -83,26 +83,28 @@ void plug_update(Plug* plug){
 		ResumeMusicStream(plug->music);
 	    }
 	}
-        //this is done so the values of global_samples do not get overwritten by the callback(which runs in a different thread) before the fft is finished
-        memcpy(plug->snapshot, global_samples, sizeof(plug->snapshot));   
+        memcpy(plug->snapshot, global_samples, sizeof(plug->snapshot));             //this is done so the values of global_samples do not get overwritten by the callback(which runs in a different thread) before the fft is finished
         fft(plug->snapshot, 1, plug->fft_global_samples,  CAPACITY);
+        //////////////////////////////////////////////////
         for (size_t i = 0; i < CAPACITY; i++) {
             float t = cabsf(plug->fft_global_samples[i]);
-            if (t > MAX_SAMPLE) MAX_SAMPLE = t;
+            if (t > MAX_SAMPLE) MAX_SAMPLE = t;                                     // Finding max_sample so i can normalise values later
         }
-	BeginDrawing();
-	ClearBackground(CLITERAL(Color){0x18, 0x18, 0x18, 0xFF});
-        for (float f = 20.0f; (size_t)f <CAPACITY/2 ; f*=step) {
-            m+=1;
-        }
-	float cell_width = (float)w / (m);
-	int width = (int)cell_width;
-        
+        //////////////////////////////////////////////////
 	if (MAX_SAMPLE == 0.0f) {
             printf("MAX_SAMPLE was %f skipping drawing\n",MAX_SAMPLE);
             EndDrawing(); 
             return; 
         }
+	BeginDrawing();
+	ClearBackground(CLITERAL(Color){0x18, 0x18, 0x18, 0xFF});
+        /////////////////////////////////////////////////
+        for (float f = 20.0f; (size_t)f <CAPACITY/2 ; f*=step) {
+            m+=1;
+        }                                                                           // Finding how many values actually are there since im going for the 'f*=step' stride. also im only iterating CAPACITY/2 because output of fft mirrors after n/2 samples
+	float cell_width = (float)w / (m);                                          // The second half holds no meaningful/new information.
+	int width = (int)cell_width;
+        /////////////////////////////////////////////////
         m=0;
         for (float f = 20.0f; (size_t)f <CAPACITY/2 ; f*=step) {
 
@@ -110,17 +112,17 @@ void plug_update(Plug* plug){
             float a=0.0f;
             /////////////////////////////////////////////////////////////////////
             for (size_t q= (size_t) f; q <(CAPACITY/2) && q<(size_t)f1 ; ++q) {
-                    a+= cabs(plug->fft_global_samples[q]);                          //Averaging the skiped values so they are not lost completely
-            }
+                    a+= cabs(plug->fft_global_samples[q]);                          //Averaging the skiped values (values between f and f1) so they are not lost completely
+            }                                                                       //This is done to turn it into a logarithmic visualisation(?), not sure why this works or why it works
             a=a/((size_t)f1 - (size_t)f +1);
             ////////////////////////////////////////////////////////////////////
 	    float t = a / MAX_SAMPLE;
 
             /* if (t/plug->smoothed[m]>1.6f || t/plug->smoothed[m]<0.4f ) ALPHA=0; */
             
-            plug->smoothed[m] = plug->smoothed[m] * ALPHA + t* (1-ALPHA); // this is to smooth it out , since fft is being calculated like 60 times a second, the output values go up and down around the center value and visually this renders
-            float barH = plug->smoothed[m] * h / 2;                       // as flickering which is visually unappealing. to go around this we only use 30% of the new value and 70% of the old value, so that the value we visualise is closer to old value.
-	    if (barH > h / 2) {                                           // this is called Exponential Moving Average(EMA)
+            plug->smoothed[m] = plug->smoothed[m] * ALPHA + t* (1-ALPHA);           // this is to smooth it out , since fft is being calculated like 60 times a second, the output values go up and down around the center value and visually this renders
+            float barH = plug->smoothed[m] * h / 2;                                 // as flickering which is visually unappealing. to go around this we only use 30% of the new value and 70% of the old value, so that the value we visualise is closer to old value.
+	    if (barH > h / 2) {                                                     // this is called Exponential Moving Average(EMA)
 		barH = h / 2;
 	    }
 	    DrawRectangle(m * cell_width, h / 2 - (int)barH, width, barH, RED);

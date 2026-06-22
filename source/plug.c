@@ -108,11 +108,12 @@ void plug_update(Plug* plug){
 
             float f1=f*step;
             float a=0.0f;
+            /////////////////////////////////////////////////////////////////////
             for (size_t q= (size_t) f; q <(CAPACITY/2) && q<(size_t)f1 ; ++q) {
-                    a+= cabs(plug->fft_global_samples[q]);
+                    a+= cabs(plug->fft_global_samples[q]);                          //Averaging the skiped values so they are not lost completely
             }
-
             a=a/((size_t)f1 - (size_t)f +1);
+            ////////////////////////////////////////////////////////////////////
 	    float t = a / MAX_SAMPLE;
 
             /* if (t/plug->smoothed[m]>1.6f || t/plug->smoothed[m]<0.4f ) ALPHA=0; */

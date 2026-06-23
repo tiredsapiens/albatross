@@ -11,6 +11,8 @@ typedef struct {
     float right;
 }Frame;
 
+float  global_samples[CAPACITY]={};
+float MAX_SAMPLE=0.0f;
 float  ALPHA;
 size_t CURRENT_SIZE=0;
 void fft(float in[], size_t stride, float complex out[], size_t n) {
@@ -113,7 +115,7 @@ void plug_update(Plug* plug){
             /////////////////////////////////////////////////////////////////////
             for (size_t q= (size_t) f; q <(CAPACITY/2) && q<(size_t)f1 ; ++q) {
                     a+= cabs(plug->fft_global_samples[q]);                          //Averaging the skiped values (values between f and f1) so they are not lost completely
-            }                                                                       //This is done to turn it into a logarithmic visualisation(?), not sure why this works or why it works
+            }                                                                       //This is done to turn it into a logarithmic visualisation(?), not sure why this works or how it works
             a=a/((size_t)f1 - (size_t)f +1);
             ////////////////////////////////////////////////////////////////////
 	    float t = a / MAX_SAMPLE;
@@ -125,7 +127,7 @@ void plug_update(Plug* plug){
 	    if (barH > h / 2) {                                                     // this is called Exponential Moving Average(EMA)
 		barH = h / 2;
 	    }
-	    DrawRectangle(m * cell_width, h / 2 - (int)barH, width, barH, RED);
+	    DrawRectangle(m * cell_width, h / 2 - (int)barH, width, barH, BLUE);
             m++;
 	}
 	EndDrawing();

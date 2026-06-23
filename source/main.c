@@ -18,47 +18,39 @@ typedef struct {
 
 #define ARRAY_LEN(xs) sizeof(xs) / sizeof(xs[0])
 
-plug_hello_t plug_hello=NULL;
-plug_init_t plug_init=NULL;
-plug_update_t plug_update=NULL;
-plug_pre_reload_t plug_pre_reload=NULL;
-plug_post_reload_t plug_post_reload=NULL;
+#ifdef HOTRELOAD
+#define PLUG(name) name##_t *name=NULL;
+#else
+#define PLUG(name) name##_t name;
+#endif
+LIST_OF_PLUGS
+#undef PLUG
+
 Plug plug ={0};
 const char * libplug_file_name="./build/libplug.so";
 void * libplug=NULL;
 
+#ifdef HOTRELOAD
 bool reload_libplug(void){
-
    if (libplug!=NULL) dlclose(libplug);
    libplug=dlopen (libplug_file_name,RTLD_NOW);
     if (libplug==NULL){
         fprintf(stderr,"ERROR: couldnt not load %s: %s\n",libplug_file_name,dlerror());
         return false;
     }
-    plug_init=dlsym(libplug,"plug_init");
-    if (plug_init==NULL){
-        fprintf(stderr,"ERROR: couldnt not load symbol plug_init: %s\n",dlerror());
-        return false;
-    }
-    plug_update=dlsym(libplug,"plug_update");
-    if (plug_update==NULL){
-        fprintf(stderr,"ERROR: couldnt not load symbol plug_update: %s\n",dlerror());
-        return false;
-    }
-    plug_pre_reload=dlsym(libplug,"plug_pre_reload");
-    if (plug_update==NULL){
-        fprintf(stderr,"ERROR: couldnt not load symbol plug_pre_reload: %s\n",dlerror());
-        return false;
-    }
-
-    plug_post_reload=dlsym(libplug,"plug_post_reload");
-    if (plug_update==NULL){
-        fprintf(stderr,"ERROR: couldnt not load symbol plug_post_reload: %s\n",dlerror());
-        return false;
-    }
+#define PLUG(name)\
+        name=dlsym(libplug,#name);\
+        if (name==NULL){\
+            fprintf(stderr,"ERROR: couldnt not load symbol %s from %s: %s\n",#name,libplug,dlerror());\
+            return false;\
+        }\
+    LIST_OF_PLUGS
+#undef PLUG
     return true;
 }
-
+#else
+#define reload_libplug() true
+#endif
 
 int main(int argc,char* argv[]) {
     if (argc>2){

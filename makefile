@@ -8,12 +8,15 @@ song ?= ./audio/celestial_symphony.mp3
 hr ?=1
 
 $(TARGET):source/main.c source/plug.h source/plug.c
-	ifeq($(hr),0)
-		clear && clang $(CFLAGS) -o build/albatross source/main.c source/plug.c $(LIBS)
-	else
-		clear && clang $(CFLAGS)-DHOTRELOAD -o build/albatross  source/plug.c $(LIBS)
+ifeq ($(hr),0)
+	clear
+	clang $(CFLAGS) -o build/albatross source/main.c source/plug.c $(LIBS)
+else
+	clear
+	clang $(CFLAGS) -DHOTRELOAD -o build/albatross source/main.c $(LIBS)
+endif
 run:
-	./build/albatross $(song)
+	ulimit -c unlimited && ./build/albatross $(song)
 clear:
 	rm ./build/albatross
 
@@ -22,4 +25,9 @@ clear_all:
 build_shared:
 	clang $(CFLAGS) -fPIC -shared  -o build/libplug.so  source/plug.c $(LIBS)
 .PHONY: build
-build : $(TARGET) build_shared
+build : build_shared $(TARGET) 
+ifeq ($(hr),0)
+	@echo "---No hot reloading, statically linking plug.c---"
+else
+	@echo "---Hot reloading enabled---"
+endif

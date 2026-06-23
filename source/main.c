@@ -43,7 +43,7 @@ bool reload_libplug(void){
         if (name==NULL){\
             fprintf(stderr,"ERROR: couldnt not load symbol %s from %s: %s\n",#name,libplug,dlerror());\
             return false;\
-        }\
+        }
     LIST_OF_PLUGS
 #undef PLUG
     return true;

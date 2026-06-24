@@ -5,6 +5,7 @@
 #include <raylib.h>
 #include <assert.h>
 #include <string.h>
+#include <stdlib.h>
 
 typedef struct {
     float left;
@@ -38,13 +39,13 @@ void callback(void *bufferData, unsigned int frames) {
         printf("callback: Received too big of a frame\n");
         return;
     }
-    Frame *frame_data = bufferData;
+    float (*fs)[2] = bufferData;       //pointer to ararys of size 2 that have floats in them(confusing syntax , as always 
     if (CAPACITY-CURRENT_SIZE<frames){
         memmove(global_samples,global_samples+frames,sizeof(float)*(CAPACITY-frames));
         CURRENT_SIZE-=frames;
     }
     for (size_t i = 0; i <frames ; i++) {
-        global_samples[CURRENT_SIZE+i]=(frame_data[i].left+frame_data[i].right)/2;
+        global_samples[CURRENT_SIZE+i]=(fs[i][0]+fs[i][1])/2;
     }
     CURRENT_SIZE+=frames;
 
@@ -63,9 +64,9 @@ void plug_init(Plug *plug,const char* filepath){
     printf("music.stream.sampleRate=%u\n", plug->music.stream.sampleRate);
     printf("music.stream.sampleSize=%u\n", plug->music.stream.sampleSize);
     printf("music.stream.channels= %u \n", plug->music.stream.channels);
-    PlayMusicStream(plug->music);
     memset(plug->fft_global_samples, 0, sizeof(plug->fft_global_samples));
     memset(plug->smoothed, 0, sizeof(plug->smoothed));
+    PlayMusicStream(plug->music);
     plug->global_channels = plug->music.stream.channels;
     AttachAudioStreamProcessor(plug->music.stream, callback);
 }
@@ -85,6 +86,29 @@ void plug_update(Plug* plug){
 		ResumeMusicStream(plug->music);
 	    }
 	}
+        if (IsFileDropped()){
+            FilePathList droppedFiles=LoadDroppedFiles();
+            if (droppedFiles.count>0){
+                const char* filepath=droppedFiles.paths[0];
+                StopMusicStream(plug->music);
+                UnloadMusicStream(plug->music);
+                plug->music=LoadMusicStream(filepath);
+                printf("music.frameCount=%d\n", plug->music.frameCount);
+                printf("music.stream.sampleRate=%u\n", plug->music.stream.sampleRate);
+                printf("music.stream.sampleSize=%u\n", plug->music.stream.sampleSize);
+                printf("music.stream.channels= %u \n", plug->music.stream.channels);
+                PlayMusicStream(plug->music);
+                plug->global_channels = plug->music.stream.channels;
+                AttachAudioStreamProcessor(plug->music.stream, callback);
+
+
+            }else{
+                printf("Something went wrong when dropping files, received 0 files\n");
+                exit(-1);
+            }
+            UnloadDroppedFiles(droppedFiles);
+
+        }
         memcpy(plug->snapshot, global_samples, sizeof(plug->snapshot));             //this is done so the values of global_samples do not get overwritten by the callback(which runs in a different thread) before the fft is finished
         fft(plug->snapshot, 1, plug->fft_global_samples,  CAPACITY);
         //////////////////////////////////////////////////

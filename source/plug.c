@@ -8,10 +8,14 @@
 #include <stdlib.h>
 
 typedef struct {
-    float left;
-    float right;
-}Frame;
+    unsigned int global_channels;
+    float complex fft_global_samples[CAPACITY];
+    float smoothed[CAPACITY];
+    float snapshot[CAPACITY];
+    Music music;
+} Plug;
 
+Plug* plug;
 float  global_samples[CAPACITY]={};
 float MAX_SAMPLE=0.0f;
 float  ALPHA;
@@ -50,15 +54,19 @@ void callback(void *bufferData, unsigned int frames) {
     CURRENT_SIZE+=frames;
 
 }
-void plug_pre_reload(Plug* plug){
+Plug* plug_pre_reload(){
     DetachAudioStreamProcessor(plug->music.stream,callback);
+    return plug;
 }
 
-void plug_post_reload(Plug* plug){
+void plug_post_reload(void* state){
+    plug=(Plug*)plug;
     AttachAudioStreamProcessor(plug->music.stream, callback);
+
 }
 
-void plug_init(Plug *plug,const char* filepath){
+void plug_init(const char* filepath){
+    plug=malloc(sizeof(Plug));
     plug->music = LoadMusicStream(filepath);
     printf("music.frameCount=%d\n", plug->music.frameCount);
     printf("music.stream.sampleRate=%u\n", plug->music.stream.sampleRate);
@@ -71,7 +79,7 @@ void plug_init(Plug *plug,const char* filepath){
     AttachAudioStreamProcessor(plug->music.stream, callback);
 }
 
-void plug_update(Plug* plug){
+void plug_update(){
         ALPHA=0.5f;
         MAX_SAMPLE = 0.0f;
 	int w = GetRenderWidth();

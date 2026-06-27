@@ -4,7 +4,6 @@ LIBS=-L./build/ -lraylib -lm -lpthread -ldl
 TARGET = build/albatross
 
 execute: build_shared build run
-song ?= ./audio/celestial_symphony.mp3
 hr ?=1
 
 $(TARGET):source/main.c source/plug.h source/plug.c

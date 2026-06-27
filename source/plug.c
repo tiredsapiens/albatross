@@ -8,18 +8,20 @@
 #include <stdlib.h>
 
 typedef struct {
+    float  global_samples[CAPACITY];
+    size_t CURRENT_SIZE;
+    float MAX_SAMPLE;
     unsigned int global_channels;
     float complex fft_global_samples[CAPACITY];
     float smoothed[CAPACITY];
     float snapshot[CAPACITY];
+    float temp[CAPACITY];
     Music music;
 } Plug;
 
 Plug* plug;
-float  global_samples[CAPACITY]={};
-float MAX_SAMPLE=0.0f;
 float  ALPHA;
-size_t CURRENT_SIZE=0;
+
 void fft(float in[], size_t stride, float complex out[], size_t n) {
     assert(n > 0);
     if (n == 1) {
@@ -44,14 +46,14 @@ void callback(void *bufferData, unsigned int frames) {
         return;
     }
     float (*fs)[2] = bufferData;       //pointer to ararys of size 2 that have floats in them(confusing syntax , as always 
-    if (CAPACITY-CURRENT_SIZE<frames){
-        memmove(global_samples,global_samples+frames,sizeof(float)*(CAPACITY-frames));
-        CURRENT_SIZE-=frames;
+    if (CAPACITY-plug->CURRENT_SIZE<frames){
+        memmove(plug->global_samples,plug->global_samples+frames,sizeof(float)*(CAPACITY-frames));
+        plug->CURRENT_SIZE-=frames;
     }
     for (size_t i = 0; i <frames ; i++) {
-        global_samples[CURRENT_SIZE+i]=(fs[i][0]+fs[i][1])/2;
+        plug->global_samples[plug->CURRENT_SIZE+i]=(fs[i][0]+fs[i][1])/2;
     }
-    CURRENT_SIZE+=frames;
+    plug->CURRENT_SIZE+=frames;
 
 }
 Plug* plug_pre_reload(){
@@ -67,21 +69,28 @@ void plug_post_reload(void* state){
 
 void plug_init(const char* filepath){
     plug=malloc(sizeof(Plug));
+    memset(plug,0,sizeof(*plug));
+    if (filepath!=NULL){
+
+    printf("inside\n");
     plug->music = LoadMusicStream(filepath);
     printf("music.frameCount=%d\n", plug->music.frameCount);
     printf("music.stream.sampleRate=%u\n", plug->music.stream.sampleRate);
     printf("music.stream.sampleSize=%u\n", plug->music.stream.sampleSize);
     printf("music.stream.channels= %u \n", plug->music.stream.channels);
-    memset(plug->fft_global_samples, 0, sizeof(plug->fft_global_samples));
-    memset(plug->smoothed, 0, sizeof(plug->smoothed));
     PlayMusicStream(plug->music);
     plug->global_channels = plug->music.stream.channels;
     AttachAudioStreamProcessor(plug->music.stream, callback);
+    }
+    printf("outside\n");
+    /*memset(plug->fft_plug->global_samples, 0, sizeof(plug->fft_plug->global_samples));*/
+
+    /*memset(plug->smoothed, 0, sizeof(plug->smoothed));*/
 }
 
 void plug_update(){
         ALPHA=0.5f;
-        MAX_SAMPLE = 0.0f;
+        plug->MAX_SAMPLE = 0.0f;
 	int w = GetRenderWidth();
 	int h = GetRenderHeight();
         float step=1.09;
@@ -117,16 +126,16 @@ void plug_update(){
             UnloadDroppedFiles(droppedFiles);
 
         }
-        memcpy(plug->snapshot, global_samples, sizeof(plug->snapshot));             //this is done so the values of global_samples do not get overwritten by the callback(which runs in a different thread) before the fft is finished
+        memcpy(plug->snapshot, plug->global_samples, sizeof(plug->snapshot));             //this is done so the values of plug->global_samples do not get overwritten by the callback(which runs in a different thread) before the fft is finished
         fft(plug->snapshot, 1, plug->fft_global_samples,  CAPACITY);
         //////////////////////////////////////////////////
         for (size_t i = 0; i < CAPACITY; i++) {
             float t = cabsf(plug->fft_global_samples[i]);
-            if (t > MAX_SAMPLE) MAX_SAMPLE = t;                                     // Finding max_sample so i can normalise values later
+            if (t > plug->MAX_SAMPLE) plug->MAX_SAMPLE = t;                                     // Finding max_sample so i can normalise values later
         }
         //////////////////////////////////////////////////
-	if (MAX_SAMPLE == 0.0f) {
-            printf("MAX_SAMPLE was %f skipping drawing\n",MAX_SAMPLE);
+	if (plug->MAX_SAMPLE == 0.0f) {
+            printf("MAX_SAMPLE was %f skipping drawing\n",plug->MAX_SAMPLE);
             EndDrawing(); 
             return; 
         }
@@ -150,7 +159,7 @@ void plug_update(){
             }                                                                       //This is done to turn it into a logarithmic visualisation(?), not sure why this works or how it works
             a=a/((size_t)f1 - (size_t)f +1);
             ////////////////////////////////////////////////////////////////////
-	    float t = a / MAX_SAMPLE;
+	    float t = a / plug->MAX_SAMPLE;
 
             /* if (t/plug->smoothed[m]>1.6f || t/plug->smoothed[m]<0.4f ) ALPHA=0; */
             

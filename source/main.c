@@ -52,11 +52,16 @@ bool reload_libplug(void){
 #endif
 
 int main(int argc,char* argv[]) {
+    char * filename;
     if (argc>2){
         printf("More than 1 parameter was used\n");
         printf("usage : albatros <audiofile>\n");
-    }
-    char* filename=argv[1];
+    }else if (argc==2){
+    
+        filename=argv[1];
+    }else{
+      filename=NULL;
+    }   
     if (!reload_libplug()) return 1; 
     InitWindow(800, 600, "Albatross");
     SetTargetFPS(60);

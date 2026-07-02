@@ -13,8 +13,6 @@ typedef struct {
     float MAX_SAMPLE;
     unsigned int global_channels;
     float complex fft_global_samples[CAPACITY];
-    float smoothed[CAPACITY];
-    float snapshot[CAPACITY];
     float temp[CAPACITY];
     Music music;
 } Plug;
@@ -126,8 +124,8 @@ void plug_update(){
             UnloadDroppedFiles(droppedFiles);
 
         }
-        memcpy(plug->snapshot, plug->global_samples, sizeof(plug->snapshot));             //this is done so the values of plug->global_samples do not get overwritten by the callback(which runs in a different thread) before the fft is finished
-        fft(plug->snapshot, 1, plug->fft_global_samples,  CAPACITY);
+        memcpy(plug->temp, plug->global_samples, sizeof(plug->temp));             //this is done so the values of plug->global_samples do not get overwritten by the callback(which runs in a different thread) before the fft is finished
+        fft(plug->temp, 1, plug->fft_global_samples,  CAPACITY);
         //////////////////////////////////////////////////
         for (size_t i = 0; i < CAPACITY; i++) {
             float t = cabsf(plug->fft_global_samples[i]);
@@ -149,6 +147,7 @@ void plug_update(){
 	int width = (int)cell_width;
         /////////////////////////////////////////////////
         m=0;
+        memset(plug->temp,0,sizeof(plug->temp));
         for (float f = 20.0f; (size_t)f <CAPACITY/2 ; f*=step) {
 
             float f1=f*step;
@@ -163,8 +162,8 @@ void plug_update(){
 
             /* if (t/plug->smoothed[m]>1.6f || t/plug->smoothed[m]<0.4f ) ALPHA=0; */
             
-            plug->smoothed[m] = plug->smoothed[m] * ALPHA + t* (1-ALPHA);           // this is to smooth it out , since fft is being calculated like 60 times a second, the output values go up and down around the center value and visually this renders
-            float barH = plug->smoothed[m] * h / 2;                                 // as flickering which is visually unappealing. to go around this we only use 30% of the new value and 70% of the old value, so that the value we visualise is closer to old value.
+            plug->temp[m] = plug->temp[m] * ALPHA + t* (1-ALPHA);           // this is to smooth it out , since fft is being calculated like 60 times a second, the output values go up and down around the center value and visually this renders
+            float barH = plug->temp[m] * h / 2;                                 // as flickering which is visually unappealing. to go around this we only use 30% of the new value and 70% of the old value, so that the value we visualise is closer to old value.
 	    if (barH > h / 2) {                                                     // this is called Exponential Moving Average(EMA)
 		barH = h / 2;
 	    }

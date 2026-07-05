@@ -6,7 +6,7 @@
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
-
+#include <stdbool.h>
 #define VISUALISATION_NORMAL 1
 #define VISUALISATION_LOG    0
 typedef struct {
@@ -23,6 +23,7 @@ typedef struct {
 Plug* plug;
 float  ALPHA;
 
+bool draw_in_terminal=true;
 
 void fft(float in[], size_t stride, float complex out[], size_t n) {
     assert(n > 0);
@@ -40,6 +41,26 @@ void fft(float in[], size_t stride, float complex out[], size_t n) {
 	out[k] = e + v;
 	out[k + n / 2] = e - v;
     }
+}
+
+void draw_bar_in_terminal(unsigned int pos,float height){
+    if (height==0.0f){
+    printf("\033[2C");
+return;}
+    unsigned int max_height=80;
+    size_t  h =ceilf(height*max_height);
+    size_t to_move_down=max_height -h;
+
+    printf("\033[%zuB",to_move_down);
+    for (size_t i = 0; i <h ; i++) {
+        printf("/");
+        printf("\033[D");
+        printf("\033[B");
+
+    }
+    printf("\033[%zuA",h+to_move_down);
+    printf("\033[2C");
+    
 }
 
 void callback(void *bufferData, unsigned int frames) {
@@ -120,7 +141,13 @@ void plug_update(){
             }else{
                  plug->visulalisation_type =VISUALISATION_NORMAL;
             }
-        }
+        }else if (IsKeyPressed(KEY_A)) {
+	    if (draw_in_terminal) {
+		draw_in_terminal=false;
+	    } else {
+
+                draw_in_terminal=true;
+	    }}
         if (IsFileDropped()){
             FilePathList droppedFiles=LoadDroppedFiles();
             if (droppedFiles.count>0){
@@ -161,8 +188,9 @@ void plug_update(){
         }
         //////////////////////////////////////////////////
 	if (plug->MAX_SAMPLE == 0.0f) {
-            printf("MAX_SAMPLE was %f skipping drawing\n",plug->MAX_SAMPLE);
+            //printf("MAX_SAMPLE was %f skipping drawing\n",plug->MAX_SAMPLE);
 	    ClearBackground(CLITERAL(Color){0x18, 0x18, 0x18, 0xFF});
+            printf("\033[2J");
             EndDrawing(); 
             return; 
         }
@@ -201,8 +229,13 @@ void plug_update(){
 		barH = h / 2;
 	    }
 	    DrawRectangle(m * cell_width, h / 2 - (int)barH, width, barH, BLUE);
+            if(draw_in_terminal) draw_bar_in_terminal(m,plug->temp[m]);
             m++;
 	}
+        if(draw_in_terminal){
+        printf("\n");
+        printf("\033[2J");
+        }
 	EndDrawing();
 }
 

@@ -7,6 +7,8 @@
 #include <string.h>
 #include <stdlib.h>
 
+#define VISUALISATION_NORMAL 1
+#define VISUALISATION_LOG    0
 typedef struct {
     float  global_samples[CAPACITY];
     size_t CURRENT_SIZE;
@@ -14,11 +16,13 @@ typedef struct {
     unsigned int global_channels;
     float complex fft_global_samples[CAPACITY];
     float temp[CAPACITY];
+    int visulalisation_type;
     Music music;
 } Plug;
 
 Plug* plug;
 float  ALPHA;
+
 
 void fft(float in[], size_t stride, float complex out[], size_t n) {
     assert(n > 0);
@@ -55,14 +59,17 @@ void callback(void *bufferData, unsigned int frames) {
 
 }
 Plug* plug_pre_reload(){
+    if (IsMusicValid(plug->music)){
     DetachAudioStreamProcessor(plug->music.stream,callback);
+    }
     return plug;
 }
 
 void plug_post_reload(void* state){
-    plug=(Plug*)plug;
+    plug=(Plug*)state;
+    if (IsMusicValid(plug->music)){
     AttachAudioStreamProcessor(plug->music.stream, callback);
-
+    }
 }
 
 void plug_init(const char* filepath){
@@ -70,7 +77,6 @@ void plug_init(const char* filepath){
     memset(plug,0,sizeof(*plug));
     if (filepath!=NULL){
 
-    printf("inside\n");
     plug->music = LoadMusicStream(filepath);
     printf("music.frameCount=%d\n", plug->music.frameCount);
     printf("music.stream.sampleRate=%u\n", plug->music.stream.sampleRate);
@@ -80,18 +86,26 @@ void plug_init(const char* filepath){
     plug->global_channels = plug->music.stream.channels;
     AttachAudioStreamProcessor(plug->music.stream, callback);
     }
-    printf("outside\n");
     /*memset(plug->fft_plug->global_samples, 0, sizeof(plug->fft_plug->global_samples));*/
 
     /*memset(plug->smoothed, 0, sizeof(plug->smoothed));*/
 }
+float get_amp(float complex z,int vis_type){
+    if (vis_type==VISUALISATION_NORMAL){
+        return cabsf(z);
+    }else{
+
+    float  a=cabsf(z);
+    return logf(a*a);}
+    
+}
 
 void plug_update(){
-        ALPHA=0.5f;
+        ALPHA=0.2f;
         plug->MAX_SAMPLE = 0.0f;
 	int w = GetRenderWidth();
 	int h = GetRenderHeight();
-        float step=1.09;
+        float step=1.06;
         size_t m=0;
 	UpdateMusicStream(plug->music);
 	if (IsKeyPressed(KEY_SPACE)) {
@@ -100,7 +114,13 @@ void plug_update(){
 	    } else {
 		ResumeMusicStream(plug->music);
 	    }
-	}
+	}else if (IsKeyPressed(KEY_T)){
+             if(plug->visulalisation_type==VISUALISATION_NORMAL){
+                 plug->visulalisation_type =VISUALISATION_LOG;
+            }else{
+                 plug->visulalisation_type =VISUALISATION_NORMAL;
+            }
+        }
         if (IsFileDropped()){
             FilePathList droppedFiles=LoadDroppedFiles();
             if (droppedFiles.count>0){
@@ -124,23 +144,33 @@ void plug_update(){
             UnloadDroppedFiles(droppedFiles);
 
         }
+
         memcpy(plug->temp, plug->global_samples, sizeof(plug->temp));             //this is done so the values of plug->global_samples do not get overwritten by the callback(which runs in a different thread) before the fft is finished
+        
+        for (size_t i = 0; i <CAPACITY ; i++) {                                    // applying hann windowing to get rid of phantom frequencies
+            float t = (float) i/CAPACITY;
+            float hann=0.5f -0.5f*cosf(2*PI*t);
+            plug->temp[i]=plug->temp[i] *hann;
+
+        }
         fft(plug->temp, 1, plug->fft_global_samples,  CAPACITY);
         //////////////////////////////////////////////////
         for (size_t i = 0; i < CAPACITY; i++) {
-            float t = cabsf(plug->fft_global_samples[i]);
+            float t = get_amp(plug->fft_global_samples[i],plug->visulalisation_type);
             if (t > plug->MAX_SAMPLE) plug->MAX_SAMPLE = t;                                     // Finding max_sample so i can normalise values later
         }
         //////////////////////////////////////////////////
 	if (plug->MAX_SAMPLE == 0.0f) {
             printf("MAX_SAMPLE was %f skipping drawing\n",plug->MAX_SAMPLE);
+	    ClearBackground(CLITERAL(Color){0x18, 0x18, 0x18, 0xFF});
             EndDrawing(); 
             return; 
         }
 	BeginDrawing();
 	ClearBackground(CLITERAL(Color){0x18, 0x18, 0x18, 0xFF});
         /////////////////////////////////////////////////
-        for (float f = 20.0f; (size_t)f <CAPACITY/2 ; f*=step) {
+        for (float f = 1.0f; (size_t)f <CAPACITY/2 ; f=ceilf(f*step)) {             //here im applying ceiling since 1*1,06 is 1.06 and we are using it as index(int) so it gets truncated to 1 , making it so im drawing the same freq over and over till it gets to 2 
+
             m+=1;
         }                                                                           // Finding how many values actually are there since im going for the 'f*=step' stride. also im only iterating CAPACITY/2 because output of fft mirrors after n/2 samples
 	float cell_width = (float)w / (m);                                          // The second half holds no meaningful/new information.
@@ -148,15 +178,18 @@ void plug_update(){
         /////////////////////////////////////////////////
         m=0;
         memset(plug->temp,0,sizeof(plug->temp));
-        for (float f = 20.0f; (size_t)f <CAPACITY/2 ; f*=step) {
+        for (float f = 1.0f; (size_t)f <CAPACITY/2 ; f=ceilf(f*step)) {
 
-            float f1=f*step;
+            float f1=ceilf(f*step);
             float a=0.0f;
             /////////////////////////////////////////////////////////////////////
             for (size_t q= (size_t) f; q <(CAPACITY/2) && q<(size_t)f1 ; ++q) {
-                    a+= cabs(plug->fft_global_samples[q]);                          //Averaging the skiped values (values between f and f1) so they are not lost completely
-            }                                                                       //This is done to turn it into a logarithmic visualisation(?), not sure why this works or how it works
-            a=a/((size_t)f1 - (size_t)f +1);
+                    
+                    if (get_amp(plug->fft_global_samples[q],plug->visulalisation_type)>a) a=get_amp(plug->fft_global_samples[q],plug->visulalisation_type);                        //getting max of the skiped values (values between f and f1) so they are not lost completely                 
+                    //a+= cabs(plug->fft_global_samples[q]);
+
+            }                                                                                                           //This is done to turn it into a logarithmic visualisation(?), not sure why this works or how it works
+            //a=a/((size_t)f1 - (size_t)f +1);
             ////////////////////////////////////////////////////////////////////
 	    float t = a / plug->MAX_SAMPLE;
 

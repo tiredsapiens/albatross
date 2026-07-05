@@ -69,7 +69,7 @@ int main(int argc,char* argv[]) {
     plug_init(filename);
     while (!WindowShouldClose()) {
         if (IsKeyPressed(KEY_R)){
-            void*state= plug_pre_reload();
+            void* state= plug_pre_reload();
             if (!reload_libplug()){
                 return 1;
             }

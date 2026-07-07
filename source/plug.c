@@ -23,7 +23,7 @@ typedef struct {
 Plug* plug;
 float  ALPHA;
 
-bool draw_in_terminal=true;
+bool draw_in_terminal=false;
 
 void fft(float in[], size_t stride, float complex out[], size_t n) {
     assert(n > 0);
@@ -202,9 +202,10 @@ void plug_update(){
             m+=1;
         }                                                                           // Finding how many values actually are there since im going for the 'f*=step' stride. also im only iterating CAPACITY/2 because output of fft mirrors after n/2 samples
 	float cell_width = (float)w / (m);                                          // The second half holds no meaningful/new information.
-	int width = (int)cell_width;
         /////////////////////////////////////////////////
+        int s =m;
         m=0;
+
         memset(plug->temp,0,sizeof(plug->temp));
         for (float f = 1.0f; (size_t)f <CAPACITY/2 ; f=ceilf(f*step)) {
 
@@ -228,7 +229,13 @@ void plug_update(){
 	    if (barH > h / 2) {                                                     // this is called Exponential Moving Average(EMA)
 		barH = h / 2;
 	    }
-	    DrawRectangle(m * cell_width, h / 2 - (int)barH, width, barH, BLUE);
+
+            
+            float hue=(float)m/s;
+            float saturation=0.75f;
+            float value=1.0f;
+            Color color=ColorFromHSV(hue*360,saturation,value);
+	    DrawRectangle(m * cell_width, h / 2 - (int)barH, ceilf(cell_width), barH, color);
             if(draw_in_terminal) draw_bar_in_terminal(m,plug->temp[m]);
             m++;
 	}

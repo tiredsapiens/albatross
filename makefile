@@ -1,8 +1,12 @@
 
-CFLAGS=-Wall -Wextra -ggdb
-LIBS=-L./build/ -lraylib -lm -lpthread -ldl 
+CFLAGS=-Wall -Wextra -ggdb -I/opt/homebrew/opt/raylib/include
+LIBS=-L./build/ -lraylib -lm -lpthread -ldl -L/opt/homebrew/opt/raylib/lib
 TARGET = build/albatross
-
+ifeq ($(UNAME_S),Darwin)
+    # macOS
+    CFLAGS += -I/opt/homebrew/opt/raylib/include
+    LDFLAGS += -L/opt/homebrew/opt/raylib/lib
+endif
 execute: build_shared build run
 hr ?=1
 
@@ -15,7 +19,7 @@ else
 	clang $(CFLAGS) -DHOTRELOAD -o build/albatross source/main.c $(LIBS)
 endif
 run:
-	ulimit -c unlimited && ./build/albatross $(song)
+	./build/albatross $(song)
 clear:
 	rm ./build/albatross
 

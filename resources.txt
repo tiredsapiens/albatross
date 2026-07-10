@@ -4,3 +4,4 @@ https://codemonk.io/blog/moving-average-filter/  -- >EMC
 https://download.ni.com/evaluation/pxi/Understanding%20FFTs%20and%20Windowing.pdf --> Windowing
 https://numpy.org/doc/stable/reference/generated/numpy.hanning.html -> hanning function used for windowing(to get rid of the phaton freqs)
 https://dlbeer.co.nz/articles/fftvis.html ----> power scaling
+ https://easings.net ---> easings functions

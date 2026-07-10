@@ -63,6 +63,7 @@ int main(int argc,char* argv[]) {
       filename=NULL;
     }   
     if (!reload_libplug()) return 1; 
+    SetConfigFlags(FLAG_MSAA_4X_HINT  );
     InitWindow(800, 600, "Albatross");
     SetTargetFPS(60);
     InitAudioDevice();

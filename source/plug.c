@@ -235,7 +235,13 @@ void plug_update(){
             float saturation=0.75f;
             float value=1.0f;
             Color color=ColorFromHSV(hue*360,saturation,value);
-	    DrawRectangle(m * cell_width, h / 2 - (int)barH, ceilf(cell_width), barH, color);
+	    //DrawRectangle(m * cell_width, h / 2 - (int)barH, ceilf(cell_width), barH, color);
+            float radius=2*cell_width*sqrtf(plug->temp[m]);
+            float thickness =(cell_width/2)*sqrtf(plug->temp[m]);
+            Vector2 startPos = {.x= m*cell_width,.y=h / 2 - (int)barH};
+            Vector2 endPos = {.x= m*cell_width,.y=h/2};
+            DrawLineEx( startPos,  endPos,thickness,color);
+            DrawCircle(m*cell_width, h / 2 - (int)barH, radius, color);
             if(draw_in_terminal) draw_bar_in_terminal(m,plug->temp[m]);
             m++;
 	}

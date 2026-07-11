@@ -1,4 +1,5 @@
 #include "plug.h" 
+#include <rlgl.h>
 #include <stdio.h>
 #include <math.h>
 #include <complex.h>
@@ -18,6 +19,7 @@ typedef struct {
     float temp[CAPACITY];
     int visulalisation_type;
     Music music;
+    Shader circle;
 } Plug;
 
 Plug* plug;
@@ -91,11 +93,14 @@ void plug_post_reload(void* state){
     if (IsMusicValid(plug->music)){
     AttachAudioStreamProcessor(plug->music.stream, callback);
     }
+    UnloadShader(plug->circle); 
+    plug->circle=LoadShader(NULL,"./shaders/circle.fs");
 }
 
 void plug_init(const char* filepath){
     plug=malloc(sizeof(Plug));
     memset(plug,0,sizeof(*plug));
+    plug->circle=LoadShader(NULL,"./shaders/circle.fs");
     if (filepath!=NULL){
 
     plug->music = LoadMusicStream(filepath);
@@ -206,7 +211,12 @@ void plug_update(){
         int s =m;
         m=0;
 
-        memset(plug->temp,0,sizeof(plug->temp));
+        memset(plug->temp,0,sizeof(plug->temp));   
+        Texture2D texture={
+            rlGetTextureIdDefault(),
+            1,1,1,PIXELFORMAT_UNCOMPRESSED_R8G8B8A8
+
+        };
         for (float f = 1.0f; (size_t)f <CAPACITY/2 ; f=ceilf(f*step)) {
 
             float f1=ceilf(f*step);
@@ -236,12 +246,28 @@ void plug_update(){
             float value=1.0f;
             Color color=ColorFromHSV(hue*360,saturation,value);
 	    //DrawRectangle(m * cell_width, h / 2 - (int)barH, ceilf(cell_width), barH, color);
-            float radius=2*cell_width*sqrtf(plug->temp[m]);
-            float thickness =(cell_width/2)*sqrtf(plug->temp[m]);
+            float radius=8*cell_width*sqrtf(plug->temp[m]);
+            float thickness =(cell_width/2)*sqrtf(plug->temp[m]);     //doing sqrt to ease it , see resources. but basically sqr(x) grows faster than x for 0<x<1;
             Vector2 startPos = {.x= m*cell_width,.y=h / 2 - (int)barH};
             Vector2 endPos = {.x= m*cell_width,.y=h/2};
             DrawLineEx( startPos,  endPos,thickness,color);
-            DrawCircle(m*cell_width, h / 2 - (int)barH, radius, color);
+            Rectangle rec={
+                .x=startPos.x-radius,
+                .y=startPos.y-radius,
+                .width= 2*radius,
+                .height=2*radius
+
+            };                                 
+
+            Vector2 position = {
+                .x=startPos.x-radius,
+                .y=startPos.y-radius,
+                };
+            BeginShaderMode(plug->circle);
+            DrawTextureEx(texture,position,0,2*radius,color);
+            //DrawRectangleRec(rec,color);
+            EndShaderMode();
+            //DrawCircle(m*cell_width, h / 2 - (int)barH, radius, color);
             if(draw_in_terminal) draw_bar_in_terminal(m,plug->temp[m]);
             m++;
 	}

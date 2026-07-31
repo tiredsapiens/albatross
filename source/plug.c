@@ -19,10 +19,11 @@ typedef struct {
     float fft_input[CAPACITY];
     float smoothed[CAPACITY];
     int visulalisation_type;
-    Music music;
-    Shader circle;
     float out_smear[CAPACITY];
     float ALPHA;
+    Music music;
+    Shader circle;
+    Shader smear;
 } Plug;
 
 Plug *plug;
@@ -47,7 +48,7 @@ void fft(float in[], size_t stride, float complex out[], size_t n) {
     }
 }
 
-void draw_bar_in_terminal(unsigned int pos, float height) {
+void draw_bar_in_terminal(float height) {
     if (height == 0.0f) {
 	printf("\033[2C");
 	return;
@@ -95,12 +96,14 @@ void plug_post_reload(void *state) {
     }
     UnloadShader(plug->circle);
     plug->circle = LoadShader(NULL, "./shaders/circle.fs");
+    plug->smear = LoadShader(NULL, "./shaders/smear.fs");
 }
 
 void plug_init(const char *filepath) {
     plug = malloc(sizeof(Plug));
     memset(plug, 0, sizeof(*plug));
     plug->circle = LoadShader(NULL, "./shaders/circle.fs");
+    plug->smear =LoadShader(NULL,"./shaders/smear.fs");
     if (filepath != NULL) {
 
 	plug->music = LoadMusicStream(filepath);
@@ -286,7 +289,7 @@ void plug_update() {
 	float smear_offset = (plug->smoothed[m] - plug->out_smear[m]) * h / 2;
 	Vector2 smear_position = {.x = startPos.x , .y = startPos.y + smear_offset};
         float smear_height=startPos.y-smear_position.y;
-        Rectangle rect;
+        Rectangle rect,src;
         //handling when smear height is negative , which means that the rect needs to be drawn on the other side of the y axis of the circle
         if (smear_height<0){
             smear_height*=-1;
@@ -294,25 +297,32 @@ void plug_update() {
             rect.y= startPos.y;//startPos.y,
             rect.width=cell_width;
             rect.height=smear_height;
+             src=(Rectangle){0,0,1,0.5};
 
         }else{
             rect.x = startPos.x - cell_width/2;
             rect.y= smear_position.y;//startPos.y,
             rect.width=cell_width;
             rect.height=smear_height;
-
+            src=(Rectangle){0,0.5,1,1};
         }
-        char p[4]={0};
+        char p[10]={0};
         snprintf(p,sizeof(p)," %zu ",m);
-        if (m<17){
-            printf("m:%zu circle pos: %f %f rect end pos: rect %f %f\n",m,smear_position.x,smear_position.y,rect.x+rect.height, rect.y+rect.height);
+        /* if (m<17){ */
+        /*     printf("m:%zu circle pos: %f %f rect end pos: rect %f %f\n",m,smear_position.x,smear_position.y,rect.x+rect.height, rect.y+rect.height); */
 
-        } 
-        DrawRectangleRec(rect, color);
+        /* } */ 
+        Vector2 origin={0};
+
+	BeginShaderMode(plug->smear);
+        DrawTexturePro( texture, src, rect,  origin, 0, color);
+	EndShaderMode();
+
+        /* DrawRectangleRec(rect, color); */
         DrawText(p,  endPos.x, endPos.y, 1, WHITE);
-	DrawCircleV(smear_position, cell_width, RED);
+	/* DrawCircleV(smear_position, cell_width, RED); */
 	if (draw_in_terminal)
-	    draw_bar_in_terminal(m, plug->smoothed[m]);
+	    draw_bar_in_terminal(plug->smoothed[m]);
 	m++;
     }
     if (draw_in_terminal) {
